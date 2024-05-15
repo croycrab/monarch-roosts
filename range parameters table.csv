@@ -1,0 +1,7 @@
+parameter,mean,sd
+size for the nbinomial observations (1/overdispersion),0.94,0.03
+Precision for kappa,1.05,0.07
+Range for alpha,4813.57,1959.57
+Stdev for alpha,3.74,3.48
+Range for tau,3190.02,1001.85
+Stdev for tau,0.08,0.08
