@@ -12,6 +12,70 @@ d1 = openxlsx::read.xlsx("monarch roost_original.xlsx") %>%
   mutate(date = as.character(as.Date(date,origin = "1899-12-30"))) %>% 
   filter(!(is.na(count)))  #remove NA observations
 
+#view number of observations over time (all data)
+d1 %>% 
+  group_by(year) %>% 
+  summarize(n_obs = sum(count > 0)) %>% 
+  ungroup() %>% 
+  ggplot(aes(y = n_obs,x = year)) +
+  geom_point()+
+  theme_pubclean() +
+  labs(y = "Observations" , x = "Year")+
+  geom_smooth(method = "loess",span = 0.5, se = F, color = "black")
+ggsave("plots/appendix_observations by year_before filter.png",bg = "white",width = 5,height = 4)
+
+#see if max observed roost size is related to sampling effort; if a site has more observations, does the max observed roost size change? 
+flyway = c("NLE","COA","TAM","TX","OK","MO","KS","AR","IA","IL","MI","MN","OH","IN","SD","ND","WI","ON","LA","NE")
+d1 %>% 
+  filter(year >= 2007 & `State/Prov` %in% flyway) %>% # apply same filters as data analysis
+  filter(!(is.na(count)) & count >= 5 & lat >= 25.5) %>% # apply same filters as data analysis
+  group_by(lat,lon,year) %>% 
+  reframe(count_max = max(count),
+          n_obs = n()) %>% 
+  ungroup() %>% 
+  ggplot(aes(y = count_max %>% log(),x = n_obs)) +
+  geom_point()+
+  theme_pubclean() +
+  labs(y = "ln-Max Roost Size Observed" , x = "Sampling Effort")+
+  geom_smooth(method = "lm",se = F, color = "black")
+ggsave("plots/appendix_max roost size observed vs sampling effort.png",bg = "white",width = 5,height = 4)
+
+#test for change in skewness over time
+library(moments)
+d1 %>% 
+  filter(year >= 2007 & `State/Prov` %in% flyway) %>% # apply same filters as data analysis
+  filter(!(is.na(count)) & count >= 5 & lat >= 25.5) %>% # apply same filters as data analysis
+  group_by(lat,lon,year) %>% 
+  reframe(count_max = max(count),
+          n_obs = n(),
+          ln_count = log(count_max)) %>% 
+  ungroup() %>% 
+  select(year,ln_count) %>% 
+  group_by(year) %>% 
+  reframe(skew = skewness(ln_count)) %>% 
+  lm(skew~year, data = .) %>% 
+  summary()
+
+#plot skewness over time
+d1 %>% 
+  filter(year >= 2007 & `State/Prov` %in% flyway) %>% # apply same filters as data analysis
+  filter(!(is.na(count)) & count >= 5 & lat >= 25.5) %>% # apply same filters as data analysis
+  group_by(lat,lon,year) %>% 
+  reframe(count_max = max(count),
+          n_obs = n(),
+          ln_count = log(count_max)) %>% 
+  ungroup() %>% 
+  select(year,ln_count) %>% 
+  group_by(year) %>% 
+  reframe(skew = skewness(ln_count))%>% 
+  ggplot(.,aes(y = skew, x = year)) + 
+  geom_point()+
+  geom_smooth(method = "lm") +
+  theme_pubclean()+
+  labs(y = "Skewness", x = "Year")+
+  annotate("text", x = 2021, y = 0.5, label = "P = 0.068")
+ggsave("plots/appendix_skewness over time.png",bg = "white",width = 5,height = 4)
+
 d1 %>% nrow() #4984 total observations
 d1 %>% filter(year %in% 2003:2006) %>% nrow()
 

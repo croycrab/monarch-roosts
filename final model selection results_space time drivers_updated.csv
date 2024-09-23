@@ -1,0 +1,40 @@
+mod_num,model,year included?,waic,dwaic,rel_lkhood,weight
+20,temp + year (SVC),yes,36602.19,0,1,0.324
+25,rain + temp + year (SVC),yes,36603.01,0.82,0.663,0.215
+30,rain + temp + NDVI + year (SVC),yes,36603.6,1.41,0.493,0.16
+31,wind + rain + temp + NDVI + year (SVC),yes,36604.11,1.92,0.383,0.124
+23,wind + temp + year (SVC),yes,36605.02,2.83,0.243,0.079
+28,wind + rain + temp + year (SVC),yes,36606.7,4.51,0.105,0.034
+36,rain*temp + year (SVC),yes,36607.43,5.25,0.073,0.024
+38,rain*temp + NDVI + year (SVC),yes,36607.69,5.5,0.064,0.021
+39,rain*temp + wind + NDVI + year (SVC),yes,36609.19,7,0.03,0.01
+27,temp + NDVI + year (SVC),yes,36610.64,8.45,0.015,0.005
+37,rain*temp + wind + year (SVC),yes,36611.83,9.64,0.008,0.003
+21,NDVI + year (SVC),yes,36613.8,11.61,0.003,0.001
+3,year (SVC),yes,36616.04,13.85,0.001,0
+18,wind + year (SVC),yes,36616.43,14.25,0.001,0
+22,wind + rain + year (SVC),yes,36616.74,14.55,0.001,0
+29,wind + rain + NDVI + year (SVC),yes,36617.63,15.44,0,0
+24,wind + NDVI + year (SVC),yes,36617.76,15.57,0,0
+26,rain + NDVI + year (SVC),yes,36618.94,16.76,0,0
+2,year (SVC),yes,36621.03,18.84,0,0
+19,rain + year (SVC),yes,36621.71,19.53,0,0
+10,wind + NDVI,no,36671.03,68.85,0,0
+34,rain*temp + NDVI,no,36671.63,69.44,0,0
+9,wind + temp,no,36672.3,70.11,0,0
+13,temp + NDVI,no,36672.75,70.56,0,0
+11,rain + temp,no,36672.8,70.61,0,0
+6,temp,no,36673.14,70.95,0,0
+8,wind + rain,no,36673.65,71.46,0,0
+35,rain*temp + wind + NDVI,no,36674.27,72.09,0,0
+32,rain*temp,no,36674.43,72.24,0,0
+16,rain + temp + NDVI,no,36674.6,72.42,0,0
+14,wind + rain + temp,no,36674.62,72.44,0,0
+4,wind,no,36675.15,72.96,0,0
+5,rain,no,36675.74,73.55,0,0
+7,NDVI,no,36676.44,74.25,0,0
+1,intercept,no,36677.13,74.94,0,0
+17,wind + rain + temp + NDVI,no,36679.72,77.53,0,0
+33,rain*temp + wind,no,36680.26,78.07,0,0
+12,rain + NDVI,no,36682.61,80.42,0,0
+15,wind + rain + NDVI,no,36684.79,82.6,0,0

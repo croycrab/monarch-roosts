@@ -44,7 +44,7 @@ weather.df = read_csv("curated weather.csv") %>%
          temp = temp7,
          rain = precip7,
          tailwind = windspeed7*cos(winddir7_full*(pi/180)))
-ndvi.df = read_csv("ndvi_same day.csv")
+ndvi.df = read_csv("ndvi_same day_25km.csv")
 
 
 count_dat = read_csv("monarch roost_curated.csv") %>%
@@ -74,7 +74,7 @@ count_dat = read_csv("monarch roost_curated.csv") %>%
          windspeed = scale_this(windspeed7),
          winddir = scale_this(winddir7),
          speed_dir = scale_this(windspeed7*winddir7))
-
+save(count_dat, file = "roost data.rda")
 
 # data filtering summary --------------------------------------------------
 count_dat %>% 
@@ -82,6 +82,16 @@ count_dat %>%
   reframe(n = n()) %>% 
   pull(n) %>% 
   quantile(probs = c(0,.5,1))
+
+#sampling effort over time
+count_dat %>% 
+  group_by(year) %>% 
+  reframe(n = n()) %>% 
+  ggplot(aes(y = n, x = year))+
+  geom_point()+
+  geom_smooth(method = "lm") +
+  theme_bw()
+
 
 # prepare model mesh ------------------------------------------------------
 # make a set of distinct study sites for mapping
@@ -286,9 +296,9 @@ ps_range95 <- make_plot_site(
 multiplot(ps,pa,pt, cols = 3)
 multiplot(ps_range95,pa_range95,pt_range95, cols = 3)
 
-lat.df0 = data.frame(taus = ((exp(mod.res2[[3]]$summary.random$tau$'0.5quant')-1)*100),
-                     taus_ucl = ((exp(mod.res2[[3]]$summary.random$tau$'0.975quant')-1)*100),
-                     taus_lcl = ((exp(mod.res2[[3]]$summary.random$tau$'0.025quant')-1)*100),
+lat.df0 = data.frame(taus = ((exp(mod.res[[3]]$summary.random$tau$'0.5quant')-1)*100),
+                     taus_ucl = ((exp(mod.res[[3]]$summary.random$tau$'0.975quant')-1)*100),
+                     taus_lcl = ((exp(mod.res[[3]]$summary.random$tau$'0.025quant')-1)*100),
                      easting = mesh$loc[,1],
                      northing = mesh$loc[,2]) %>% 
   st_as_sf(coords = c("easting", "northing"), crs = epsg6703km, remove = FALSE) %>% 
@@ -345,10 +355,10 @@ p.tau0 = ggplot(map2 %>% st_simplify(dTolerance = 10,preserveTopology = T)) +
 p.tau0
 
 ggarrange(p.tau0,p.lat0, labels = c("(A)","(B)"))
-ggsave("plots/monarch roost trend map and latitude.png",bg = "white",height = 4,width = 10)
+ggsave("plots/monarch roost trend map and latitude_no covariates.png",bg = "white",height = 4,width = 10)
 
 p.tau0
-ggsave("plots/monarch roost trend map and latitude.png",bg = "white",height = 4,width = 10)
+ggsave("plots/monarch roost trend map_no covariates.png",bg = "white",height = 4,width = 10)
 
 # model selection -------------------------------------------------------
 source("fixed model list.R")
@@ -384,8 +394,8 @@ write_csv(waic.tab %>% mutate(waic = round(waic,2),
                               dwaic = round(dwaic,2),
                               rel_lkhood = round(rel_lkhood,3),
                               weight = round(weight,3)) %>% 
-            arrange(dwaic),"final model selection results_space time drivers.csv")
-save(mod.res,file = "output_all models_model selection.RData")
+            arrange(dwaic),"final model selection results_space time drivers_updated.csv")
+save(mod.res,file = "output_all models_model selection_updated.RData")
 
 # model average -----------------------------------------------------------
 #summarize model selection results
@@ -496,7 +506,7 @@ for(i in 1:length(var_comp2)){
 }
 names(hist.list)
 ggarrange(hist.list[["temp"]],hist.list[["rain"]],hist.list[["rain*temp"]],hist.list[["tailwind"]],hist.list[["ndvi"]], ncol = 3,nrow = 2, align = "hv",labels = c("A","B","C","D","E"))
-ggsave("plots/covariate effects_weighted averages of marginal posteriors.png", 
+ggsave("plots/covariate effects_weighted averages of marginal posteriors_updated.png", 
        bg = "white",
        height = 7,
        width = 10)
@@ -507,15 +517,18 @@ p.temp = data.frame(temp = seq(from = min(count_dat$temp,na.rm = T),to = max(cou
   tidyr::expand(temp)  %>% 
   rownames_to_column() %>%   
   slice(rep(1:n(), each = 5000)) %>%
-  mutate(b.temp= rep(samp.list[["temp"]],100),
+  mutate(id = rep(c(1:5000),100),,
+         b.temp= rep(samp.list[["temp"]],100),
          count = (b.temp*temp)) %>%
-  group_by(temp) %>%
-  reframe(count_med = median(count),count_ucl = quantile(count,probs = 0.75),count_lcl = quantile(count,probs = 0.25)) %>% 
+  mutate(b_med = quantile(b.temp, probs = 0.5),
+         b_ucl = quantile(b.temp,probs = 0.75),
+         b_lcl = quantile(b.temp,probs = 0.25)) %>%
+  filter(b.temp < b_ucl & b.temp > b_lcl) %>% 
   mutate(temp = (((temp*sd(count_dat$temp7,na.rm = T))+mean(count_dat$temp7,na.rm = T))-32) * (5/9)) %>% 
-  ggplot(aes(y = count_med,x = temp))+
-  geom_ribbon(aes(ymin = count_lcl,ymax = count_ucl),alpha = .25,linewidth = .1)+
+  ggplot(aes(y = count,x = temp, group = id))+
   theme_pubclean()+
-  geom_line(lty = "solid",linewidth = 1.15)+
+  geom_line(alpha = 0.1)+
+  geom_line(inherit.aes = F, data = . %>% filter(b.temp == b_med), aes(y = count, x = temp),col = "red", linewidth = 1.15)+
   labs(y = "Relative Roost Size",
        x = "Temperature (°C)")
 p.temp
@@ -524,21 +537,69 @@ p.temp
 p.ndvi = data.frame(ndvi = seq(from = min(count_dat$ndvi,na.rm = T),to = max(count_dat$ndvi,na.rm = T),length.out = 100)) %>% 
   slice(rep(1:n(), each = 5000)) %>% 
   rownames_to_column()  %>% 
-  mutate(b.ndvi= rep(samp.list[["ndvi"]],100),
+  mutate(id = rep(c(1:5000),100),
+         b.ndvi= rep(samp.list[["ndvi"]],100),
          count = ndvi*b.ndvi) %>% 
-  group_by(ndvi) %>%
-  reframe(count_med = median(count),count_ucl = quantile(count,probs = 0.75),count_lcl = quantile(count,probs = 0.25)) %>% 
+  mutate(b_med = quantile(b.ndvi, probs = 0.5),
+         b_ucl = quantile(b.ndvi,probs = 0.75),
+         b_lcl = quantile(b.ndvi,probs = 0.25)) %>%
+  filter(b.ndvi < b_ucl & b.ndvi > b_lcl) %>% 
   mutate(ndvi = (ndvi*sd(count_dat$ndvi_raw,na.rm = T))+mean(count_dat$ndvi_raw,na.rm = T)) %>% 
-  ggplot(aes(y = count_med,x = ndvi))+
-  geom_ribbon(aes(ymin = count_lcl,ymax = count_ucl),alpha = .25,linewidth = .1)+
+  ggplot(aes(y = count,x = ndvi,group = id))+
+  geom_line(alpha = 0.1)+
+  geom_line(inherit.aes = F, data = . %>% filter(b.ndvi == b_med), aes(y = count, x = ndvi),col = "red", linewidth = 1.15)+
   theme_pubclean()+
-  geom_line(lty = "solid",linewidth = 1.15)+
   labs(y = "", 
        x = "NDVI")
 p.ndvi
 
-ggarrange(p.temp,p.ndvi,ncol = 2)
-ggsave("plots/covariate effects.png",bg = "white",width = 7,height = 3)
+#pre
+p.pre = data.frame(rain = seq(from = min(count_dat$rain,na.rm = T),to = max(count_dat$rain,na.rm = T),length.out = 100)) %>% 
+  slice(rep(1:n(), each = 5000)) %>% 
+  rownames_to_column()  %>% 
+  mutate(id = rep(c(1:5000),100),
+         b.rain= rep(samp.list[["rain"]],100),
+         count = rain*b.rain,
+         b_med = quantile(b.rain, probs = 0.5),
+         b_ucl = quantile(b.rain,probs = 0.75),
+         b_lcl = quantile(b.rain,probs = 0.25),
+         count2 = rain*b_med) %>%
+  filter(b.rain < b_ucl & b.rain > b_lcl) %>% 
+  mutate(rain = ((rain*sd(count_dat$precip7,na.rm = T))+mean(count_dat$precip7))*25.4) %>% 
+  ggplot(aes(y = count,x = rain,group = id))+
+  geom_line(alpha = 0.1)+
+  geom_line(inherit.aes = F, data = . %>% distinct(rain,b_med,count2), aes(y = count2, x = rain),col = "red", linewidth = 1.15)+
+  theme_pubclean()+
+  labs(y = "Relative Roost Size", 
+       x = "7-day Precipitation (mm)")
+p.pre
+
+#wind
+p.wind = data.frame(wind = seq(from = min(count_dat$tailwind,na.rm = T),to = max(count_dat$tailwind,na.rm = T),length.out = 100)) %>% 
+  slice(rep(1:n(), each = 5000)) %>% 
+  rownames_to_column()  %>% 
+  mutate(id = rep(c(1:5000),100),
+         b.wind= rep(samp.list[["tailwind"]],100),
+         count = wind*b.wind,
+         b_med = quantile(b.wind, probs = 0.5),
+         b_ucl = quantile(b.wind,probs = 0.75),
+         b_lcl = quantile(b.wind,probs = 0.25),
+         count2 = wind*b_med) %>%
+  filter(b.wind < b_ucl & b.wind > b_lcl) %>%  
+  mutate(wind = (wind*sd(count_dat$tailwind_raw,na.rm = T))+mean(count_dat$tailwind_raw,na.rm = T)) %>% 
+  ggplot(aes(y = count,x = wind,group = id))+
+  geom_line(alpha = 0.1)+
+  geom_line(inherit.aes = F, data = . %>% distinct(wind,b_med,count2), aes(y = count2, x = wind),col = "red", linewidth = 1.15)+
+  theme_pubclean()+
+  labs(y = "", 
+       x = "Tailwind (mph)")
+p.wind
+
+ggarrange(p.temp,p.ndvi,p.pre,p.wind,ncol = 2,nrow = 2)
+ggsave("plots/covariate effects.png",bg = "white",width = 7,height = 6)
+
+# ggarrange(p.temp,p.ndvi,ncol = 2,nrow = 1)
+# ggsave("plots/covariate effects.png",bg = "white",width = 7,height = 4)
 
 # changes in covariates over time -----------------------------------------
 library(glmmTMB)
@@ -560,8 +621,17 @@ temp.trend = plot_model(mod.temp,type = "pred",terms = c("std_yr","lat"))+
   labs(title = NULL, x = "Year (0 = 2007)", y = "Temperature (°C)", color = "Latitude")+
   theme_pubclean()
 
-ggarrange(temp.trend, ndvi.trend, common.legend = T)
-ggsave("plots/temperature and ndvi trends.png",bg = "white",height = 4,width = 10)
+mod.precip = glmmTMB(precip7 ~ lat*std_yr,data = count_dat)
+Anova(mod.precip)
+summary(mod.precip)
+precip.trend = plot_model(mod.precip,type = "pred",terms = c("std_yr","lat"))+
+  labs(title = NULL, x = "Year (0 = 2007)", y = "Precipitation (in)", color = "Latitude")+
+  theme_pubclean()
+precip.trend
+
+
+ggarrange(temp.trend, ndvi.trend,precip.trend, common.legend = T, ncol = 3)
+ggsave("plots/temperature and ndvi and precip trends.png",bg = "white",height = 4,width = 12)
 
 # figure for phenology change over time -----------------------------------
 mod.pheno = glmmTMB(julian~lat+std_yr, count_dat)
@@ -575,25 +645,25 @@ ggsave("plots/julian day vs year.png",bg = "white",height = 4,width = 4.5)
 
 # view top model ----------------------------------------------------------
 # load("fixed effect model selection results list.RData")
-mod.res2[[30]]$summary.hyperpar %>% 
+mod.res[[31]]$summary.hyperpar %>% 
   select(mean,sd) %>% 
   rownames_to_column("parameter") %>% 
   mutate(mean = round(mean,3),
          sd = round(sd,3)) %>% 
   write_csv("range parameters table.csv",)
 
-mod.res2[[30]]$summary.hyperpar
-
-median(beta.df %>% filter(params == "Temperature") %>% pull(betas))/abs(mod.res2[[30]]$summary.random$tau$'0.5quant' %>% median())
-median(beta.df %>% filter(params == "NDVI") %>% pull(betas))/abs(mod.res2[[30]]$summary.random$tau$'0.5quant' %>% median())
-median(beta.df %>% filter(params == "Temperature") %>% pull(betas))/median(beta.df %>% filter(params == "NDVI") %>% pull(betas))
-((exp(mod.res2[[30]]$summary.random$tau$'0.5quant')-1)*100) %>% quantile(prob = c(0.025,0.5,0.975))
-exp(mod.res2[[30]]$summary.random$tau$'0.5quant')%>% quantile(prob = c(0.025,0.5,0.975))
-(1-(0.9340051^17))*100
-(1-(0.8873992^17))*100
+mod.res[[31]]$summary.hyperpar
+# 
+# median(beta.df %>% filter(params == "Temperature") %>% pull(betas))/abs(mod.res[[31]]$summary.random$tau$'0.5quant' %>% median())
+# median(beta.df %>% filter(params == "NDVI") %>% pull(betas))/abs(mod.res[[31]]$summary.random$tau$'0.5quant' %>% median())
+# median(beta.df %>% filter(params == "Temperature") %>% pull(betas))/median(beta.df %>% filter(params == "NDVI") %>% pull(betas))
+# ((exp(mod.res[[31]]$summary.random$tau$'0.5quant')-1)*100) %>% quantile(prob = c(0.025,0.5,0.975))
+# exp(mod.res[[31]]$summary.random$tau$'0.5quant')%>% quantile(prob = c(0.025,0.5,0.975))
+# (1-(0.9340051^17))*100
+# (1-(0.8873992^17))*100
 
 count_dat %>% 
-  mutate(countx = mod.res2[[30]]$summary.linear.predictor$mean[1:nrow(count_dat)]) %>% 
+  mutate(countx = mod.res[[31]]$summary.linear.predictor$mean[1:nrow(count_dat)]) %>% 
   ggplot(aes(y= countx,x= year, col = lat)) +
   geom_point()+
   geom_smooth(method = "lm")
@@ -610,21 +680,21 @@ mesh_proj <- fm_evaluator(
 
 # pull data
 kappa <- data.frame(
-  median = exp(mod.res[[30]]$summary.random$kappa$"0.5quant"),
-  range95 = exp(mod.res[[30]]$summary.random$kappa$"0.975quant") -
-    exp(mod.res[[30]]$summary.random$kappa$"0.025quant")
+  median = exp(mod.res[[31]]$summary.random$kappa$"0.5quant"),
+  range95 = exp(mod.res[[31]]$summary.random$kappa$"0.975quant") -
+    exp(mod.res[[31]]$summary.random$kappa$"0.025quant")
 )
 alph <- data.frame(
-  median = exp(mod.res[[30]]$summary.random$alpha$"0.5quant"),
-  range95 = exp(mod.res[[30]]$summary.random$alpha$"0.975quant") -
-    exp(mod.res[[30]]$summary.random$alpha$"0.025quant")
+  median = exp(mod.res[[31]]$summary.random$alpha$"0.5quant"),
+  range95 = exp(mod.res[[31]]$summary.random$alpha$"0.975quant") -
+    exp(mod.res[[31]]$summary.random$alpha$"0.025quant")
 )
 taus <- data.frame(
-  median = (exp(mod.res[[30]]$summary.random$tau$"0.5quant") - 1) * 100,
-  range95 = (exp(mod.res[[30]]$summary.random$tau$"0.975quant") -
-               exp(mod.res[[30]]$summary.random$tau$"0.025quant")) * 100,
-  ucl = (exp(mod.res[[30]]$summary.random$tau$"0.975quant") - 1) * 100,
-  lcl = (exp(mod.res[[30]]$summary.random$tau$"0.025quant") - 1) * 100) %>% 
+  median = (exp(mod.res[[31]]$summary.random$tau$"0.5quant") - 1) * 100,
+  range95 = (exp(mod.res[[31]]$summary.random$tau$"0.975quant") -
+               exp(mod.res[[31]]$summary.random$tau$"0.025quant")) * 100,
+  ucl = (exp(mod.res[[31]]$summary.random$tau$"0.975quant") - 1) * 100,
+  lcl = (exp(mod.res[[31]]$summary.random$tau$"0.025quant") - 1) * 100) %>% 
   mutate(med_dif0 = ifelse(ucl < 0 | lcl > 0,median,NA))
 
 # loop to get estimates on a mapping grid
@@ -735,9 +805,9 @@ png("plots/spatial fields of paramaters.png",pointsize =16, height = 3000, width
 multiplot(ps,ps_range95,pa,pa_range95,pt,pt_range95, cols = 3)
 dev.off()
 #figure 1
-lat.df = data.frame(taus = ((exp(mod.res[[30]]$summary.random$tau$'0.5quant')-1)*100),
-                    taus_ucl = ((exp(mod.res[[30]]$summary.random$tau$'0.975quant')-1)*100),
-                    taus_lcl = ((exp(mod.res[[30]]$summary.random$tau$'0.025quant')-1)*100),
+lat.df = data.frame(taus = ((exp(mod.res[[31]]$summary.random$tau$'0.5quant')-1)*100),
+                    taus_ucl = ((exp(mod.res[[31]]$summary.random$tau$'0.975quant')-1)*100),
+                    taus_lcl = ((exp(mod.res[[31]]$summary.random$tau$'0.025quant')-1)*100),
                     easting = mesh$loc[,1],
                     northing = mesh$loc[,2]) %>% 
   st_as_sf(coords = c("easting", "northing"), crs = epsg6703km, remove = FALSE) %>% 

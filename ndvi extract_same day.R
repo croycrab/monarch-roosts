@@ -19,6 +19,22 @@ map3 = map2 %>% filter(ST_12 %in% c(flyway,"MX"))
 # get ncei_crs
 ncei_crs = rast("ndvi raw/AVHRR-Land_v005_AVH13C1_NOAA-18_20070827_c20170401040337.nc") %>% st_crs()
 
+#view circles
+#view 12.5 km radius circles
+read_csv("monarch roost_curated.csv") %>%
+  filter(year >= 2007 & `State/Prov` %in% flyway) %>% 
+  mutate(year = as.numeric(str_split(date,"-",simplify = T)[,1])) %>% 
+  distinct(year,julian,lat,lon) %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>%
+  st_transform(epsg6703km) %>%
+  mutate(easting = st_coordinates(.)[, 1],
+         northing = st_coordinates(.)[, 2],
+         obs_id = as.integer(factor(paste0(lat,lon,year)))) %>%  
+  st_buffer(dist = 12.5) %>% #25 km diameter
+  ggplot()+
+  geom_sf()+
+  ggspatial::annotation_scale()
+
 #get date by location unique combinations
 sites = read_csv("monarch roost_curated.csv") %>%
   filter(year >= 2007 & `State/Prov` %in% flyway) %>% 
@@ -29,13 +45,14 @@ sites = read_csv("monarch roost_curated.csv") %>%
   mutate(easting = st_coordinates(.)[, 1],
          northing = st_coordinates(.)[, 2],
          obs_id = as.integer(factor(paste0(lat,lon,year)))) %>%  
-  st_buffer(dist = 12500) %>% #25 km diameter
+  st_buffer(dist = 12.5) %>% #12.5 km radius
   st_transform(crs = ncei_crs)
+
 
 # extract ndvi ------------------------------------------------------------
 years = c(2007:2023)
 ndvi_list_combined = list()
-for(i in 7:length(years)){
+for(i in 1:length(years)){
   #get list of files for year
   ncei_url = glue("https://www.ncei.noaa.gov/data/land-normalized-difference-vegetation-index/access/{years[i]}/")
   site_filt = sites %>% 
@@ -83,6 +100,6 @@ for(i in 7:length(years)){
 ndvi.combined.df = do.call("rbind", ndvi_list_combined) %>% 
   left_join(sites %>% 
               st_drop_geometry() %>% 
-              select(obs_id,lat,lon),by = "obs_id")
-write.csv(ndvi.combined.df,"ndvi_same day.csv")
+              dplyr::select(obs_id,lat,lon),by = "obs_id")
+write.csv(ndvi.combined.df,"ndvi_same day_25km.csv")
 
