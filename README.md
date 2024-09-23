@@ -16,9 +16,11 @@ The Objectives of the analysis proceed as follows. The first objective is purely
   + inspects the amount of data available and the spatial distribution of observations, creates supplementary figures
   + writes data file to [monarch roost_curated.csv](monarch roost_curated.csv)
 
-2. Weather variables: [visual crossing weather extraction.R](visual crossing weather extraction.R) scrapes and tidies a dataframe of weather observations up to 7 days prior to each observation, saving observation IDs in [weather.rda](weather.rda), raw downloaded data in [vcweather.rda](vcweather.rda), and tidied csv in [vcweather.csv](vcweather.csv). Weather data was further curated to produce 7day averages in [weather_curated.R](weather_curated.R), and this was written to [weather_curated.csv](weather_curated.csv).
+2a. Weather variables: [visual crossing weather extraction.R](visual crossing weather extraction.R) scrapes and tidies a dataframe of weather observations up to 7 days prior to each observation, saving observation IDs in [weather.rda](weather.rda), raw downloaded data in [vcweather.rda](vcweather.rda), and tidied csv in [vcweather.csv](vcweather.csv). Weather data was further curated to produce 7day averages in [weather_curated.R](weather_curated.R), and this was written to [curated weather.csv](curated weather.csv).
 
-3. NDVI was extracted in [ndvi extract_same day.R](ndvi extract_same day.R) to produce [ndvi_same day.csv](ndvi_same day.csv)
+2b. In response to reviewers, we also download same day weather data from the following databases: PRISM and DAYMET. The reviewer was concerned about the weighted average of weather station data approach, and so we will gather weather data from other databases to see if they are more or less concordant with each other. Extraction can be found [here](extract additional weather.R) and comparisons of weather data can be found [here](compare weather data.R)
+
+3. NDVI was extracted in [ndvi extract_same day.R](ndvi extract_same day.R) to produce [ndvi_same day.csv](ndvi_same day.csv). EDIT: upon further inspection, I found an error where buffers around points were 12500 km vs the intended 12.5 km (mixed up units, m vs km). New file created with correct buffer called [ndvi_same day_25km.csv](ndvi_same day_25km.csv). 
 
 4. [fixed model list.R](fixed model list.R) creates a list of all models to be compared via model selection
 
